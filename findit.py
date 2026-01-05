@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from typing import Iterable, Tuple, List
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops
@@ -7,6 +8,7 @@ import numpy as np
 import zxingcpp
 
 from stuff import stuff_dict
+from genpage import html_page
 
 Pt = Tuple[float, float]
 
@@ -56,7 +58,7 @@ def label_corners(barcode_corners):
     return [tuple(map(int, p)) for p in rect_xy]
 
 def findit(term):
-    fn = "IMG_3528.jpg"
+    fn = "b.jpg"
     im = Image.open(fn)
     barcodes = zxingcpp.read_barcodes(im)
     print(f"{len(barcodes)} barcodes found")
@@ -66,10 +68,9 @@ def findit(term):
         # print(f"{bc.text} {bc.position}")
         p = bc.position
         vx = [(pt.x, pt.y) for pt in (p.top_left, p.top_right, p.bottom_right, p.bottom_left)]
-        dr.polygon(vx, outline = "red")
+        dr.polygon(vx, outline = "red", width = 4)
         dr.text(vx[2], bc.text, fill=(0, 0, 0), font=font)
         bcdb[int(bc.text)] = (fn, label_corners(vx))
-    print(bcdb)
     matches = []
     matte = Image.new("L", im.size, 85)
     dr = ImageDraw.Draw(matte)
@@ -81,5 +82,37 @@ def findit(term):
     found = ImageChops.multiply(im, matte.convert("RGB"))
     found.save("out.png")
 
+def make_page():
+    ims = []
+    h = 600
+    for fn in ("IMG_3528.jpg", "IMG_3537.jpg"):
+        im = Image.open(fn)
+        sf = h / im.height
+        sim = im.resize((int(im.width * sf), h))
+        ims.append((im, sf, sim))
+    w = sum([sim.width for (_,_,sim) in ims])
+
+    main = Image.new("RGB", (w, h))
+    x0 = 0
+    atlas = []
+    for (im,sf,sim) in ims:
+        main.paste(sim, (x0, 0))
+        barcodes = zxingcpp.read_barcodes(im)
+        bcdb = {}
+        for bc in barcodes:
+            p = bc.position
+            vx = [(pt.x, pt.y) for pt in (p.top_left, p.top_right, p.bottom_right, p.bottom_left)]
+            bcdb[int(bc.text)] = (fn, label_corners(vx))
+        print(bcdb.keys())
+        for code in bcdb:
+            (fn, vx) = bcdb[code]
+            vx = [(x0 + int(x * sf), int(y * sf)) for (x, y) in vx]
+            atlas.append((stuff_dict[code].lower(), vx))
+        x0 += sim.width
+
+    with open("index.html", "w") as f:
+        f.write(html_page(main, json.dumps(atlas)))
+
 if __name__ == "__main__":
-    findit(sys.argv[1])
+    findit("")
+    # make_page()
