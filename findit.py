@@ -114,5 +114,5 @@ def make_page():
         f.write(html_page(main, json.dumps(atlas)))
 
 if __name__ == "__main__":
-    findit("")
-    # make_page()
+    # findit("")
+    make_page()
