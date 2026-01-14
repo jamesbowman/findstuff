@@ -32,7 +32,7 @@ stuff = [
 (130, "Metric screws"),
 (131, "Rubber Bands"),
 (132, "Rubber Feet"),
-(133, None),
+(133, "STEMMA / Qwicc"),
 (134, None),
 (135, None),
 (136, None),
