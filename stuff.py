@@ -33,7 +33,7 @@ stuff = [
 (131, "Rubber Bands"),
 (132, "Rubber Feet"),
 (133, "STEMMA / Qwicc"),
-(134, None),
+(134, "Boat"),
 (135, None),
 (136, None),
 (137, "FTDI FT232 MPSSE"),

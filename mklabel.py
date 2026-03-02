@@ -93,7 +93,9 @@ if __name__ == "__main__":
     if 0:
         ims = [testsheet()]
     if 1:
-        ss = [(n, d) for (n, d) in stuff if d and n in range(237, 999)]
+        ll = [int(a) for a in sys.argv[1:]]
+        print(f"{ll=}")
+        ss = [(n, d) for (n, d) in stuff if d and n in ll]
         for (n,d) in ss:
             print(n, d)
         ims = [embed(make_label(str(n), d)) for (n, d) in ss]
