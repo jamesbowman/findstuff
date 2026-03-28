@@ -68,7 +68,7 @@ def findit(term):
         # print(f"{bc.text} {bc.position}")
         p = bc.position
         vx = [(pt.x, pt.y) for pt in (p.top_left, p.top_right, p.bottom_right, p.bottom_left)]
-        dr.polygon(vx, outline = "red", width = 4)
+        dr.polygon(vx, outline = "red", width = 1)
         dr.text(vx[2], bc.text, fill=(0, 0, 0), font=font)
         bcdb[int(bc.text)] = (fn, label_corners(vx))
     matches = []
@@ -89,7 +89,7 @@ def layout_images(images, height):
         sim = im.resize((int(im.width * sf), height))
         laid_out.append((im, sf, sim))
 
-    images_per_row = 3
+    images_per_row = 4
     row_widths = []
     for i in range(0, len(laid_out), images_per_row):
         row = laid_out[i:i + images_per_row]

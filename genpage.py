@@ -46,7 +46,7 @@ js = """
       poly.setAttribute("vector-effect", "non-scaling-stroke");
       poly.setAttribute("fill", "rgba(255,235,59,0.18)");
       poly.setAttribute("stroke", "rgba(255,59,59,0.95)");
-      poly.setAttribute("stroke-width", "3");
+      poly.setAttribute("stroke-width", "0.75");
       poly.setAttribute("stroke-linejoin", "round");
   
       // Optional tooltip
