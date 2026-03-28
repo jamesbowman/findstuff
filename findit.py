@@ -82,36 +82,88 @@ def findit(term):
     found = ImageChops.multiply(im, matte.convert("RGB"))
     found.save("out.png")
 
+def layout_images(images, height):
+    laid_out = []
+    for im in images:
+        sf = height / im.height
+        sim = im.resize((int(im.width * sf), height))
+        laid_out.append((im, sf, sim))
+
+    images_per_row = 3
+    row_widths = []
+    for i in range(0, len(laid_out), images_per_row):
+        row = laid_out[i:i + images_per_row]
+        row_widths.append(sum(sim.width for (_, _, sim) in row))
+
+    width = max(row_widths, default=0)
+    rows = (len(laid_out) + images_per_row - 1) // images_per_row
+    main = Image.new("RGB", (width, rows * height))
+    print(f"{main=}")
+
+    positioned = []
+    x0 = 0
+    y0 = 0
+    for i, (im, sf, sim) in enumerate(laid_out):
+        if i > 0 and i % images_per_row == 0:
+            x0 = 0
+            y0 += height
+        main.paste(sim, (x0, y0))
+        positioned.append((im, sf, sim, x0, y0))
+        x0 += sim.width
+    main.save("main.png")
+
+    return main, positioned
+
 def make_page():
     ims = []
     h = 600
-    for fn in ("IMG_3528.jpg", "IMG_3537.jpg"):
-        im = Image.open(fn)
-        sf = h / im.height
-        sim = im.resize((int(im.width * sf), h))
-        ims.append((im, sf, sim))
-    w = sum([sim.width for (_,_,sim) in ims])
+    dir = "snap250327"
+    ff = sorted([dir + "/" + f for f in os.listdir(dir) if f.endswith(".jpg")])
 
-    main = Image.new("RGB", (w, h))
-    x0 = 0
+    for fn in ff:
+        im = Image.open(fn)
+        ims.append((fn, im))
+
+    main, laid_out = layout_images((im for (_, im) in ims), h)
     atlas = []
-    for (im,sf,sim) in ims:
-        main.paste(sim, (x0, 0))
+    code_to_files = {}
+    for ((fn, im), (_, sf, _, x0, y0)) in zip(ims, laid_out):
         barcodes = zxingcpp.read_barcodes(im)
         bcdb = {}
         for bc in barcodes:
             p = bc.position
             vx = [(pt.x, pt.y) for pt in (p.top_left, p.top_right, p.bottom_right, p.bottom_left)]
             bcdb[int(bc.text)] = (fn, label_corners(vx))
-        print(bcdb.keys())
         for code in bcdb:
             (fn, vx) = bcdb[code]
-            vx = [(x0 + int(x * sf), int(y * sf)) for (x, y) in vx]
-            atlas.append((stuff_dict[code].lower(), vx))
-        x0 += sim.width
+            code_to_files.setdefault(code, set()).add(fn)
+            vx = [(x0 + int(x * sf), y0 + int(y * sf)) for (x, y) in vx]
+            if code in stuff_dict:
+                atlas.append((stuff_dict[code].lower(), vx))
 
     with open("index.html", "w") as f:
         f.write(html_page(main, json.dumps(atlas)))
+
+    labeled_codes = set(stuff_dict)
+    found_labeled_codes = labeled_codes & set(code_to_files)
+    missing_codes = sorted(labeled_codes - found_labeled_codes)
+    duplicate_codes = sorted(
+        code for code, files in code_to_files.items()
+        if code in stuff_dict and len(files) > 1
+    )
+
+    print("Missing labels:")
+    for code in missing_codes:
+        print(f"  {code}: {stuff_dict[code]}")
+    if not missing_codes:
+        print("  none")
+
+    print("Duplicate labels:")
+    for code in duplicate_codes:
+        files = ", ".join(sorted(code_to_files[code]))
+        print(f"  {code}: {stuff_dict[code]} [{files}]")
+    if not duplicate_codes:
+        print("  none")
 
 if __name__ == "__main__":
     # findit("")
