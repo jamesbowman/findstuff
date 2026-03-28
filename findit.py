@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import argparse
 from typing import Iterable, Tuple, List
 
 from PIL import Image, ImageDraw, ImageFont, ImageChops
@@ -114,11 +115,10 @@ def layout_images(images, height):
 
     return main, positioned
 
-def make_page():
+def make_page(image_dir):
     ims = []
     h = 600
-    dir = "snap250327"
-    ff = sorted([dir + "/" + f for f in os.listdir(dir) if f.endswith(".jpg")])
+    ff = sorted([image_dir + "/" + f for f in os.listdir(image_dir) if f.endswith(".jpg")])
 
     for fn in ff:
         im = Image.open(fn)
@@ -174,5 +174,9 @@ def make_page():
         print("  none")
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("image_dir", nargs="?", default="snap250327")
+    args = parser.parse_args()
+
     # findit("")
-    make_page()
+    make_page(args.image_dir)

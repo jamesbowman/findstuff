@@ -15,6 +15,7 @@ js = """
   const quad = """ + quad_js + """; // [[x,y],...], in original image pixel coords
   const box = document.getElementById('searchBox');
   const poly = document.getElementById('quad');
+  const matchCount = document.getElementById('matchCount');
 
   function setPolygonPoints() {
     poly.setAttribute('points', quad.map(p => p[0] + ',' + p[1]).join(' '));
@@ -29,8 +30,10 @@ js = """
   
   function highlightBcdb(searchString) {
     const s = (searchString ?? "").trim().toLowerCase();
+    const strokeWidth = s ? "2" : "1";
     const overlay = document.getElementById("overlay");
     if (!overlay) return;
+    let matchTotal = 0;
   
     // Nuke previous highlights
     overlay.querySelectorAll("polygon.bc-hit, rect.tile-dim").forEach(p => p.remove());
@@ -50,6 +53,7 @@ js = """
       const nm = String(name).toLowerCase();
       const ok = (!s) || nm.includes(s);
       if (!ok) continue;
+      matchTotal += 1;
       const tile = findTile(quad);
       if (tile) matchedTiles.add(tile.name);
   
@@ -59,7 +63,7 @@ js = """
       poly.setAttribute("vector-effect", "non-scaling-stroke");
       poly.setAttribute("fill", "rgba(255,235,59,0.18)");
       poly.setAttribute("stroke", "rgba(255,59,59,0.95)");
-      poly.setAttribute("stroke-width", "2");
+      poly.setAttribute("stroke-width", strokeWidth);
       poly.setAttribute("stroke-linejoin", "round");
       poly.setAttribute("pointer-events", "visiblePainted");
       poly.style.cursor = "help";
@@ -69,6 +73,10 @@ js = """
           .textContent = name;
   
       overlay.appendChild(poly);
+    }
+
+    if (matchCount) {
+      matchCount.textContent = `${matchTotal} matches`;
     }
 
     if (!s) return;
@@ -81,7 +89,7 @@ js = """
       rect.setAttribute("y", tile.y0);
       rect.setAttribute("width", tile.x1 - tile.x0);
       rect.setAttribute("height", tile.y1 - tile.y0);
-      rect.setAttribute("fill", "rgba(25,25,25,0.45)");
+      rect.setAttribute("fill", "rgba(10,10,10,0.65)");
       overlay.insertBefore(rect, overlay.firstChild);
     }
   }
@@ -123,11 +131,12 @@ def html_page(
 
     quad_xy is in *image pixel coordinates* (same coordinate system as the original image).
     """
-    # Encode image (PNG) as data URL
+    # Encode image (JPEG) as data URL to keep the HTML payload smaller.
     buf = io.BytesIO()
-    pil_img.save(buf, format="PNG", optimize=True)
-    png_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    data_url = f"data:image/png;base64,{png_b64}"
+    rgb_img = pil_img.convert("RGB")
+    rgb_img.save(buf, format="JPEG", quality=92, optimize=True)
+    jpg_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    data_url = f"data:image/jpeg;base64,{jpg_b64}"
 
     w, h = pil_img.size
 
@@ -171,31 +180,45 @@ def html_page(
       max-width:{image_max_width_px}px;
       margin:0 auto;
       padding:14px 16px;
-      display:flex;
-      gap:10px;
-      align-items:center;
     ">
-      <div style="font-weight:600; letter-spacing:0.2px; opacity:0.95;">
-        {esc_title}
+      <div style="
+        display:flex;
+        gap:10px;
+        align-items:center;
+      ">
+        <div style="font-weight:600; letter-spacing:0.2px; opacity:0.95;">
+          {esc_title}
+        </div>
+        <div style="flex:1;"></div>
+        <div style="width:min(520px, 65vw);">
+          <input
+            id="searchBox"
+            type="search"
+            value="{esc_val}"
+            placeholder="{esc_ph}"
+            aria-label="Search"
+            style="
+              box-sizing:border-box;
+              width:100%;
+              padding:10px 12px;
+              border-radius:10px;
+              border:1px solid rgba(255,255,255,0.14);
+              background:rgba(255,255,255,0.06);
+              color:{foreground};
+              outline:none;
+              font-size:14px;
+            "
+          />
+          <div
+            id="matchCount"
+            style="
+              margin-top:8px;
+              font-size:13px;
+              opacity:0.75;
+            "
+          >0 matches</div>
+        </div>
       </div>
-      <div style="flex:1;"></div>
-      <input
-        id="searchBox"
-        type="search"
-        value="{esc_val}"
-        placeholder="{esc_ph}"
-        aria-label="Search"
-        style="
-          width:min(520px, 65vw);
-          padding:10px 12px;
-          border-radius:10px;
-          border:1px solid rgba(255,255,255,0.14);
-          background:rgba(255,255,255,0.06);
-          color:{foreground};
-          outline:none;
-          font-size:14px;
-        "
-      />
     </div>
   </div>
 
