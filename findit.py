@@ -126,8 +126,16 @@ def make_page():
 
     main, laid_out = layout_images((im for (_, im) in ims), h)
     atlas = []
+    tiles = []
     code_to_files = {}
-    for ((fn, im), (_, sf, _, x0, y0)) in zip(ims, laid_out):
+    for ((fn, im), (_, sf, sim, x0, y0)) in zip(ims, laid_out):
+        tiles.append({
+            "name": fn,
+            "x0": x0,
+            "y0": y0,
+            "x1": x0 + sim.width,
+            "y1": y0 + sim.height,
+        })
         barcodes = zxingcpp.read_barcodes(im)
         bcdb = {}
         for bc in barcodes:
@@ -142,7 +150,7 @@ def make_page():
                 atlas.append((stuff_dict[code].lower(), vx))
 
     with open("index.html", "w") as f:
-        f.write(html_page(main, json.dumps(atlas)))
+        f.write(html_page(main, json.dumps(atlas), tiles=tiles))
 
     labeled_codes = set(stuff_dict)
     found_labeled_codes = labeled_codes & set(code_to_files)

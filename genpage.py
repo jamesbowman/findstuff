@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import html
 import io
+import json
 from typing import Optional
 from PIL import Image
 
@@ -21,8 +22,10 @@ js = """
 
   // Expects:
   //   - global bcdb = [[name, [[x,y],[x,y],[x,y],[x,y]]], ...]
+  //   - global tiles = [{name, x0, y0, x1, y1}, ...]
   //   - <svg id="overlay" viewBox="0 0 W H"> sitting over the image
-  // Creates/updates <polygon class="bc-hit"> elements to highlight matches.
+  // Creates/updates <polygon class="bc-hit"> elements to highlight matches
+  // and dims tiles with no current matches.
   
   function highlightBcdb(searchString) {
     const s = (searchString ?? "").trim().toLowerCase();
@@ -30,15 +33,25 @@ js = """
     if (!overlay) return;
   
     // Nuke previous highlights
-    overlay.querySelectorAll("polygon.bc-hit").forEach(p => p.remove());
+    overlay.querySelectorAll("polygon.bc-hit, rect.tile-dim").forEach(p => p.remove());
   
     // Helper: build polygon points string
     const ptsStr = (quad) => quad.map(p => `${p[0]},${p[1]}`).join(" ");
+    const findTile = (quad) => {
+      const cx = quad.reduce((sum, p) => sum + p[0], 0) / quad.length;
+      const cy = quad.reduce((sum, p) => sum + p[1], 0) / quad.length;
+      return (window.tiles || []).find(tile =>
+        cx >= tile.x0 && cx <= tile.x1 && cy >= tile.y0 && cy <= tile.y1
+      );
+    };
+    const matchedTiles = new Set();
   
     for (const [name, quad] of (window.bcdb || [])) {
       const nm = String(name).toLowerCase();
       const ok = (!s) || nm.includes(s);
       if (!ok) continue;
+      const tile = findTile(quad);
+      if (tile) matchedTiles.add(tile.name);
   
       const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
       poly.setAttribute("class", "bc-hit");
@@ -46,14 +59,30 @@ js = """
       poly.setAttribute("vector-effect", "non-scaling-stroke");
       poly.setAttribute("fill", "rgba(255,235,59,0.18)");
       poly.setAttribute("stroke", "rgba(255,59,59,0.95)");
-      poly.setAttribute("stroke-width", "0.75");
+      poly.setAttribute("stroke-width", "2");
       poly.setAttribute("stroke-linejoin", "round");
+      poly.setAttribute("pointer-events", "visiblePainted");
+      poly.style.cursor = "help";
   
       // Optional tooltip
       poly.appendChild(document.createElementNS("http://www.w3.org/2000/svg", "title"))
           .textContent = name;
   
       overlay.appendChild(poly);
+    }
+
+    if (!s) return;
+
+    for (const tile of (window.tiles || [])) {
+      if (matchedTiles.has(tile.name)) continue;
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("class", "tile-dim");
+      rect.setAttribute("x", tile.x0);
+      rect.setAttribute("y", tile.y0);
+      rect.setAttribute("width", tile.x1 - tile.x0);
+      rect.setAttribute("height", tile.y1 - tile.y0);
+      rect.setAttribute("fill", "rgba(25,25,25,0.45)");
+      overlay.insertBefore(rect, overlay.firstChild);
     }
   }
 
@@ -74,6 +103,7 @@ js = """
 def html_page(
     pil_img: Image.Image,
     bcdb,
+    tiles=None,
     quad_xy: Iterable[Pt] = ((753, 697), (111, 97), (111, 69), (753, 69)),
     *,
     title: str = "findstuff",
@@ -194,7 +224,6 @@ def html_page(
           inset:0;
           width:100%;
           height:100%;
-          pointer-events:none;
         "
       >
         <polygon
@@ -214,6 +243,7 @@ def html_page(
 
   <script>
 bcdb = {bcdb};
+tiles = {json.dumps(tiles or [])};
 {js}
   </script>
 </body>
